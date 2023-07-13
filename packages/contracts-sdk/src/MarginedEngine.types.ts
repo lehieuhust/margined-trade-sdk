@@ -36,15 +36,31 @@ export type ExecuteMsg = {
     leverage: Uint128;
     margin_amount: Uint128;
     side: Side;
+    stop_loss?: Uint128 | null;
+    take_profit: Uint128;
+    vamm: string;
+  };
+} | {
+  update_tp_sl: {
+    position_id: number;
+    stop_loss?: Uint128 | null;
+    take_profit?: Uint128 | null;
     vamm: string;
   };
 } | {
   close_position: {
+    position_id: number;
     quote_asset_limit: Uint128;
     vamm: string;
   };
 } | {
+  tp_sl: {
+    position_id: number;
+    vamm: string;
+  };
+} | {
   liquidate: {
+    position_id: number;
     quote_asset_limit: Uint128;
     trader: string;
     vamm: string;
@@ -56,11 +72,13 @@ export type ExecuteMsg = {
 } | {
   deposit_margin: {
     amount: Uint128;
+    position_id: number;
     vamm: string;
   };
 } | {
   withdraw_margin: {
     amount: Uint128;
+    position_id: number;
     vamm: string;
   };
 } | {
@@ -82,16 +100,21 @@ export type QueryMsg = {
   get_whitelist: {};
 } | {
   position: {
+    position_id: number;
     trader: string;
     vamm: string;
   };
 } | {
   all_positions: {
+    limit?: number | null;
+    order_by?: number | null;
+    start_after?: number | null;
     trader: string;
   };
 } | {
   unrealized_pnl: {
     calc_option: PnlCalcOption;
+    position_id: number;
     trader: string;
     vamm: string;
   };
@@ -101,20 +124,24 @@ export type QueryMsg = {
   };
 } | {
   margin_ratio: {
+    position_id: number;
     trader: string;
     vamm: string;
   };
 } | {
   free_collateral: {
+    position_id: number;
     trader: string;
     vamm: string;
   };
 } | {
   balance_with_funding_payment: {
+    position_id: number;
     trader: string;
   };
 } | {
   position_with_funding_payment: {
+    position_id: number;
     trader: string;
     vamm: string;
   };
