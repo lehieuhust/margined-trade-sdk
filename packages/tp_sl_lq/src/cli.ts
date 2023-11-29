@@ -45,40 +45,16 @@ async function handleExecuteEngine(
   let result = "";
   const engineHandler = new EngineHandler(sender, engine, insuranceFund); 
   try {  
-    const [tpslMsg, liquidateMsg, payFundingMsg] = await executeEngine(engineHandler);
-    if (tpslMsg.length > 0) {
-      console.dir(tpslMsg, { depth: 4 });
-      const res = await engineHandler.executeMultiple(tpslMsg);
+    const priceMsg = await executeEngine(engineHandler);
+    if (priceMsg.length > 0) {
+      console.dir(priceMsg, { depth: 4 });
+      const res = await engineHandler.executeMultiple(priceMsg);
       if (res !== undefined) {
         console.log(
-          "take profit | stop loss - txHash:",
+          "appendPrice - txHash:",
           res.transactionHash
         );
-        result = result + `:receipt: BOT: ${sender.address} - take profit | stop loss - txHash: ${res.transactionHash}` + ` at ${time(date)}`;
-      }
-    }
-
-    if (liquidateMsg.length > 0) {
-      console.dir(liquidateMsg, { depth: 4 });
-      const res = await engineHandler.executeMultiple(liquidateMsg);
-      if (res !== undefined) {
-        console.log(
-          "liquidate - txHash:",
-          res.transactionHash
-        );
-        result = result + `:receipt: BOT: ${sender.address} - liquidate - txHash: ${res.transactionHash}` + ` at ${time(date)}`;
-      }
-    }
-
-    if (payFundingMsg.length > 0) {
-      console.dir(payFundingMsg, { depth: 4 });
-      const res = await engineHandler.executeMultiple(payFundingMsg);
-      if (res !== undefined) {
-        console.log(
-          "payfunding - txHash:",
-          res.transactionHash
-        );
-        result = result + `:receipt: BOT: ${sender.address} - payfunding - txHash: ${res.transactionHash}` + ` at ${time(date)}`;
+        result = `:receipt: BOT: ${sender.address} - appendPrice - txHash: ${res.transactionHash}` + ` at ${time(date)}`;
       }
     }
     return result;
@@ -116,9 +92,6 @@ async function handleExecuteEngine(
     url: webhookUrl,
   });
 
-  const scheduleTask = new fetchSchedule();
-  scheduleTask.executeJob();
-
   const sender = await getSender(rpcUrl);
   if (typeof sender === "string") {
     throw new Error("Cannot get sender - err: " + sender);
@@ -151,6 +124,6 @@ async function handleExecuteEngine(
     } catch (error) {
       console.log({ error });
     }
-    await delay(3000);
+    await delay(3600000);
   }
 })();

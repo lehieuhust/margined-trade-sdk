@@ -1,11 +1,16 @@
-import { UserWallet, bigAbs } from "@oraichain/oraitrading-common";
-import { ExecuteInstruction, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
+import {
+  UserWallet,
+  bigAbs,
+  getPriceFeed,
+} from "@oraichain/oraitrading-common";
+import { ExecuteInstruction } from "@cosmjs/cosmwasm-stargate";
 
 import {
   Addr,
   MarginedEngineQueryClient,
   MarginedVammQueryClient,
   MarginedInsuranceFundQueryClient,
+  MarginedPricefeedTypes,
 } from "@oraichain/oraimargin-contracts-sdk";
 
 import {
@@ -260,7 +265,6 @@ export class EngineHandler {
     const nextFundingTime = Number(vammState.next_funding_time);
     let time = Math.floor(Date.now() / 1000);
     console.log({ time, nextFundingTime });
-    
 
     if (time >= nextFundingTime) {
       const payFunding: ExecuteMsg = {
@@ -278,54 +282,70 @@ export class EngineHandler {
     }
     return [];
   }
+  async appendOraiprice(priceFeed: Addr): Promise<ExecuteInstruction[]> {
+    const decimals = Number((await this.engineClient.config()).decimals);
+    const oraclePrice = Math.round((await getPriceFeed("ORAI", "https://pricefeed.oraichainlabs.org/")) * decimals);
+    if (oraclePrice === 0) {
+      console.log("Oracle price is ZERO!");
+      return [];
+    }
+    console.log({ oraclePrice });
+    let time = Math.floor(Date.now() / 1000) - 12;
+    console.log({ time });
+    const appendPrice = {
+      append_price: {
+        key: "ORAI",
+        price: oraclePrice.toString(),
+        timestamp: time,
+      },
+    } as MarginedPricefeedTypes.ExecuteMsg;
+
+    console.log({ appendPrice });
+    return [
+      {
+        contractAddress: priceFeed,
+        msg: appendPrice,
+      },
+    ];
+  }
+
+  async appendInjprice(priceFeed: Addr): Promise<ExecuteInstruction[]> {
+    const decimals = Number((await this.engineClient.config()).decimals);
+    const oraclePrice = Math.round((await getPriceFeed("INJ", "https://pricefeed-futures.oraichainlabs.org/inj")) * decimals);
+    if (oraclePrice === 0) {
+      console.log("Oracle price is ZERO!");
+      return [];
+    }
+    console.log({ oraclePrice });
+    let time = Math.floor(Date.now() / 1000) - 12;
+    console.log({ time });
+    const appendPrice = {
+      append_price: {
+        key: "INJ",
+        price: oraclePrice.toString(),
+        timestamp: time,
+      },
+    } as MarginedPricefeedTypes.ExecuteMsg;
+
+    console.log({ appendPrice });
+    return [
+      {
+        contractAddress: priceFeed,
+        msg: appendPrice,
+      },
+    ];
+  }
 }
 
 export async function executeEngine(
   engineHandler: EngineHandler
-): Promise<[ExecuteInstruction[], ExecuteInstruction[], ExecuteInstruction[]]> {
-  const vammList: Addr[] = await engineHandler.getAllVamm();
-  const executeTPSLPromises = vammList
-    .map((item) => [
-      engineHandler.triggerTpSl(item, "buy", true),
-      engineHandler.triggerTpSl(item, "buy", false),
-      engineHandler.triggerTpSl(item, "sell", true),
-      engineHandler.triggerTpSl(item, "sell", false),
-    ])
-    .flat();
-
-  const executeLiquidatePromises = vammList
-    .map((item) => [
-      engineHandler.triggerLiquidate(item, "buy"),
-      engineHandler.triggerLiquidate(item, "sell"),
-    ])
-    .flat();
-
-  const executePayFundingPromises = vammList
-    .map((item) => [engineHandler.payFunding(item)])
-    .flat();
-
-  let tpslMsg: ExecuteInstruction[] = [];
-  let liquidateMsg: ExecuteInstruction[] = [];
-  let payFundingMsg: ExecuteInstruction[] = [];
-  const tpslResults = await Promise.allSettled(executeTPSLPromises);
-  for (let res of tpslResults) {
-    if (res.status === "fulfilled") {
-      tpslMsg = tpslMsg.concat(res.value);
-    }
-  }
-
-  const liquidateResults = await Promise.allSettled(executeLiquidatePromises);
-  for (let res of liquidateResults) {
-    if (res.status === "fulfilled") {
-      liquidateMsg = liquidateMsg.concat(res.value);
-    }
-  }
-
-  const payFundingResults = await Promise.allSettled(executePayFundingPromises);
-  for (let res of payFundingResults) {
-    if (res.status === "fulfilled") {
-      payFundingMsg = payFundingMsg.concat(res.value);
-    }
-  }
-  return [tpslMsg, liquidateMsg, payFundingMsg];
+): Promise<ExecuteInstruction[]> {
+  const priceFeed = process.env.PRICEFEED_CONTRACT;
+  console.log({ priceFeed });
+  
+  const appendOraiPrice = await engineHandler.appendOraiprice(priceFeed);
+  const appendInjPrice = await engineHandler.appendInjprice(priceFeed);
+  let priceMsg: ExecuteInstruction[] = [];
+  priceMsg = priceMsg.concat(appendOraiPrice, appendInjPrice);
+  return priceMsg;
 }
