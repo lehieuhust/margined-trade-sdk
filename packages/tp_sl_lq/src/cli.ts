@@ -124,6 +124,6 @@ async function handleExecuteEngine(
     } catch (error) {
       console.log({ error });
     }
-    await delay(3600000);
+    await delay(360000);
   }
 })();
